@@ -65,7 +65,7 @@ function createBeanstalkVersion(application, bucket, s3Key, versionLabel, versio
     });
 }
 
-function deployBeanstalkVersion(application, environmentName, versionLabel) {
+function deployBeanstalkVersion(application, environmentName, versionLabel, solutionStackName) {
     return awsApiRequest({
         service: 'elasticbeanstalk',
         querystring: {
@@ -73,7 +73,8 @@ function deployBeanstalkVersion(application, environmentName, versionLabel) {
             Version: '2010-12-01',
             ApplicationName: application,
             EnvironmentName: environmentName,
-            VersionLabel: versionLabel
+            VersionLabel: versionLabel,
+            SolutionStackName: solutionStackName 
         }
     });
 }
@@ -138,7 +139,7 @@ function expect(status, result, extraErrorMessage) {
 }
 
 //Uploads zip file, creates new version and deploys it
-function deployNewVersion(application, environmentName, versionLabel, versionDescription, file, bucket, waitUntilDeploymentIsFinished, waitForRecoverySeconds) {
+function deployNewVersion(application, environmentName, versionLabel, versionDescription, file, bucket, waitUntilDeploymentIsFinished, waitForRecoverySeconds, solutionStackName) {
     //Lots of characters that will mess up an S3 filename, so only allow alphanumeric, - and _ in the actual file name.
     //The version label can still contain all that other stuff though.
     let s3filename = versionLabel.replace(/[^a-zA-Z0-9-_]/g, '-');
@@ -181,7 +182,7 @@ function deployNewVersion(application, environmentName, versionLabel, versionDes
         }
         deployStart = new Date();
         console.log(`Starting deployment of version ${versionLabel} to environment ${environmentName}`);
-        return deployBeanstalkVersion(application, environmentName, versionLabel, waitForRecoverySeconds);
+        return deployBeanstalkVersion(application, environmentName, versionLabel, waitForRecoverySeconds, solutionStackName);
     }).then(result => {
         expect(200, result);
 
@@ -209,11 +210,11 @@ function deployNewVersion(application, environmentName, versionLabel, versionDes
 }
 
 //Deploys existing version in EB
-function deployExistingVersion(application, environmentName, versionLabel, waitUntilDeploymentIsFinished, waitForRecoverySeconds) {
+function deployExistingVersion(application, environmentName, versionLabel, waitUntilDeploymentIsFinished, waitForRecoverySeconds, solutionStackName) {
     let deployStart = new Date();
     console.log(`Deploying existing version ${versionLabel}`);
 
-    deployBeanstalkVersion(application, environmentName, versionLabel).then(result => {
+    deployBeanstalkVersion(application, environmentName, versionLabel, solutionStackName).then(result => {
 
         expect(200, result, "Failed to deploy an existing version");
 
@@ -255,6 +256,7 @@ function main() {
         file,
         existingBucketName = null,
         useExistingVersionIfAvailable,
+        solutionStackName,
         waitForRecoverySeconds = 30,
         waitUntilDeploymentIsFinished = true; //Whether or not to wait for the deployment to complete...
 
@@ -273,6 +275,10 @@ function main() {
 
         if (process.env.INPUT_EXISTING_BUCKET_NAME) {
             existingBucketName = strip(process.env.INPUT_EXISTING_BUCKET_NAME);
+        }
+
+        if (process.env.INPUT_SOLUTION_STACK_NAME) {
+            solutionStackName = strip(process.env.INPUT_SOLUTION_STACK_NAME);
         }
 
         if ((process.env.INPUT_WAIT_FOR_DEPLOYMENT || '').toLowerCase() == 'false') {
@@ -337,6 +343,7 @@ function main() {
     console.log('      AWS Secret Key: ' + awsApiRequest.secretKey.length + ' characters long, starts with ' + awsApiRequest.secretKey.charAt(0));
     console.log(' Wait for deployment: ' + waitUntilDeploymentIsFinished);
     console.log('  Recovery wait time: ' + waitForRecoverySeconds);
+    console.log(' Solution stack name: ' + solutionStackName);
     console.log('');
 
     getApplicationVersion(application, versionLabel).then(result => {
@@ -365,11 +372,11 @@ function main() {
                 }
                 console.log(`Deploying existing version ${versionLabel}, version info:`);
                 console.log(JSON.stringify(versionsList[0], null, 2));
-                deployExistingVersion(application, environmentName, versionLabel, waitUntilDeploymentIsFinished, waitForRecoverySeconds);
+                deployExistingVersion(application, environmentName, versionLabel, waitUntilDeploymentIsFinished, waitForRecoverySeconds, solutionStackName);
             }
         } else {
             if (file) {
-                deployNewVersion(application, environmentName, versionLabel, versionDescription, file, existingBucketName, waitUntilDeploymentIsFinished, waitForRecoverySeconds);
+                deployNewVersion(application, environmentName, versionLabel, versionDescription, file, existingBucketName, waitUntilDeploymentIsFinished, waitForRecoverySeconds, solutionStackName);
             } else {
                 console.error(`Deployment failed: No deployment package given but version ${versionLabel} doesn't exist, so nothing to deploy!`);
                 process.exit(2);
