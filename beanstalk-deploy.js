@@ -182,7 +182,7 @@ function deployNewVersion(application, environmentName, versionLabel, versionDes
         }
         deployStart = new Date();
         console.log(`Starting deployment of version ${versionLabel} to environment ${environmentName}`);
-        return deployBeanstalkVersion(application, environmentName, versionLabel, waitForRecoverySeconds, solutionStackName);
+        return deployBeanstalkVersion(application, environmentName, versionLabel, solutionStackName);
     }).then(result => {
         expect(200, result);
 
