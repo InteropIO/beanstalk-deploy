@@ -47,6 +47,9 @@ inputs:
   max_backoff_retries:
     description: 'How many times to exponentially back-off on Throttling exceptions. Default: 10'
     required: false
+  solution_stack_name:
+    description: 'Solution stack to use'
+    required: false
 
 branding:
   icon: 'arrow-up'  
